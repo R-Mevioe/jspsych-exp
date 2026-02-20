@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>jsPsych 实验（稳定版）</title>
+
+  <!-- jsPsych v7 (CDN) -->
+  <link href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css" rel="stylesheet" />
+  <script src="https://unpkg.com/jspsych@7.3.4"></script>
+
+  <!-- Official plugins -->
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.1.2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@1.0.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-slider-response@1.1.2"></script>
+
+  <style>
+    body { background: #fff; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .center { text-align: center; }
+    .consent { text-align: left; line-height: 1.8; }
+    .field { margin: 14px 0; text-align: left; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box;
+    }
+
+    .hint { color: #b00020; margin-top: 10px; display: none; }
+
+    /* Token allocation cards */
+    .accounts { text-align: left; }
+    .account { border: 1px solid #ddd; border-radius: 12px; padding: 12px; margin: 10px 0; }
+    .account h4 { margin: 0 0 6px 0; }
+    .account p { margin: 6px 0; line-height: 1.6; }
+    .account input[type="number"] { width: 140px; }
+
+    .sumbar { margin-top: 12px; font-weight: 700; }
+    .sum-ok { color: #0a7a0a; }
+    .sum-bad { color: #b00020; }
+
+    .img-wrap { text-align: center; margin: 12px 0; }
+    .img-wrap img { max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #ddd; }
+
+    /* Make jsPsych buttons larger */
+    .jspsych-btn { font-size: 18px; padding: 10px 18px; }
+
+    /* Language test word chips */
+    .wordbox { border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; margin-top: 10px; background: #fafafa; }
+    .wordbox-title { text-align:center; font-weight: 700; margin-bottom: 10px; }
+    .chips { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+    .chip {
+      border: 1px solid #ddd;
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 18px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+      color: #c00;
+    }
+    .chip.selected { border-color: #c00; background: rgba(204,0,0,0.06); color:#c00; font-weight:700; }
+    textarea.sentence-box {
+      width: 100%;
+      min-height: 90px;
+      font-size: 16px;
+      padding: 10px;
+      box-sizing: border-box;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      resize: vertical;
+    }
+
+  
+    /* Fixed slider width (avoid changing length across pages) */
+    .jspsych-html-slider-response-container .jspsych-slider {
+      width: 520px;
+      max-width: 90vw;
+      margin: 0 auto;
+      display: block;
+    }
+    .jspsych-html-slider-response-container .jspsych-slider input[type="range"]{
+      width: 100%;
+    }
+
+  
+    /* Token allocation (screenshot-style) */
+    .alloc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+    @media (max-width: 900px){
+      .alloc-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 520px){
+      .alloc-grid { grid-template-columns: 1fr; }
+    }
+    .alloc-card {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+      min-height: 150px;
+    }
+    .alloc-card h4 {
+      text-align: center;
+      margin: 2px 0 10px 0;
+      font-size: 18px;
+    }
+    .alloc-card p {
+      margin: 6px 0;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    .red { color: #c00; font-weight: 700; }
+    .blue { color: #06c; font-weight: 700; }
+
+    .alloc-inputs {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      align-items: center;
+      font-size: 14px;
+    }
+    .alloc-inputs .pair { display:flex; align-items:center; gap:6px; }
+    .alloc-inputs input[type="number"]{
+      width: 46px;
+      padding: 4px 6px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      text-align: center;
+    }
+    .alloc-sumline {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+  </style>
+</head>
+
+<body>
+<script>
+  // ---------------------------
+  // Utilities
+  // ---------------------------
+  function uid() {
+    return 'P' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
+  }
+  const participant_id = uid();
+
+  const jsPsych = initJsPsych({
+    show_progress_bar: true,
+    auto_update_progress_bar: true,
+    on_data_update: (data) => { data.participant_id = participant_id; },
+    on_finish: () => {
+      // ---------------------------
+      // 自动保存（本地下载，解决 Excel 打开中文乱码：UTF-8 with BOM）
+      // 同时建议在 CSV 中去掉 stimulus（里面是大段 HTML），让表格更干净
+      // ---------------------------
+
+      // 1) CSV (UTF-8 BOM)
+      const csvText = jsPsych.data.get().ignore('stimulus').csv();
+      const csvBlob = new Blob(["\ufeff", csvText], { type: "text/csv;charset=utf-8" });
+      const csvUrl = URL.createObjectURL(csvBlob);
+      const a1 = document.createElement("a");
+      a1.href = csvUrl;
+      a1.download = `${participant_id}_data.csv`;
+      document.body.appendChild(a1);
+      a1.click();
+      a1.remove();
+      URL.revokeObjectURL(csvUrl);
+
+      // 2) JSON（通常不会乱码）
+      jsPsych.data.get().localSave('json', `${participant_id}_data.json`);
+
+      document.body.innerHTML = `
+        <div class="container center" style="padding:40px;">
+          <h2>实验结束</h2>
+          <p>数据已生成下载（CSV 与 JSON）。如果 Excel 仍显示异常，可优先使用 JSON，或用 Excel 的“数据→自文本/CSV”并选择 UTF-8 导入。</p>
+          <p>您现在可以关闭本页面。</p>
+        </div>
+      `;
+    }
+  });
+
+  // ---------------------------
+  // 1) Consent + demographics (OFFICIAL FORM PLUGIN; no DOM reading in on_finish)
+  // ---------------------------
+  const demographics = {
+    type: jsPsychSurveyHtmlForm,
+    button_label: "同意并继续",
+    preamble: `
+      <div class="container consent">
+        <h2 class="center">知情同意书</h2>
+        <p>为了确保您充分了解本研究的详细信息并表示同意参与研究。在参与正式开始研究之前，请您仔细阅读以下内容，确认您已了解并充分理解相关信息。</p>
+        <p>您有权随时退出研究，您的实验数据将不纳入研究结果。如果您有任何问题，可以联系主试(电话：13958860199)。</p>
+        <p>本研究预计耗时8分钟左右。</p>
+        <p>我们将严格保护您的个人信息和数据的隐私，您的数据将仅用于科学研究，并在分析和报告中会对您的身份进行保密处理。</p>
+        <p>如果您已充分理解并同意以上内容，请填写下面的人口学信息并继续；不同意请直接关闭本页面。</p>
+        <hr/>
+      </div>
+    `,
+    html: `
+      <div class="container">
+        <div class="field">
+          <label>请输入您的年龄（可选：18-60岁）</label>
+          <input name="age" type="number" min="18" max="60" placeholder="例如：20（可留空）"/>
+        </div>
+
+        <div class="field">
+          <label>请输入您的性别（必填）</label>
+          <input name="gender" type="text" required placeholder="例如：男/女/其他"/>
+        </div>
+
+        <div class="field">
+          <label>请输入您的民族（必填）</label>
+          <input name="ethnicity" type="text" required placeholder="例如：汉族"/>
+        </div>
+
+        <div class="field">
+          <label>请输入您的最高学历（必填）</label>
+          <select name="education" required>
+            <option value="" selected disabled>请选择</option>
+            <option value="小学">小学</option>
+            <option value="初中">初中</option>
+            <option value="高中">高中</option>
+            <option value="专科">专科</option>
+            <option value="本科">本科</option>
+            <option value="硕士">硕士</option>
+            <option value="博士">博士</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>请输入您的姓名或昵称（必填）</label>
+          <input name="nickname" type="text" required placeholder="例如：小王"/>
+        </div>
+
+        <p id="demo_hint" class="hint">请检查：性别/民族/学历/昵称需填写；年龄如填写需在18-60之间。</p>
+      </div>
+    `,
+    on_load: () => {
+      // Extra validation: age optional, but if filled must be 18-60.
+      const btn = document.querySelector("button.jspsych-btn");
+      const hint = document.getElementById("demo_hint");
+
+      btn.addEventListener("click", (e) => {
+        const ageEl = document.querySelector('input[name="age"]');
+        const ageStr = (ageEl?.value || "").trim();
+
+        let ok = true;
+        if (ageStr !== "") {
+          const age = Number(ageStr);
+          if (!Number.isFinite(age) || age < 18 || age > 60) ok = false;
+        }
+
+        // required fields (HTML required will also handle, but we show unified hint)
+        const gender = document.querySelector('input[name="gender"]').value.trim();
+        const eth = document.querySelector('input[name="ethnicity"]').value.trim();
+        const edu = document.querySelector('select[name="education"]').value;
+        const nick = document.querySelector('input[name="nickname"]').value.trim();
+        if (!gender || !eth || !edu || !nick) ok = false;
+
+        if (!ok) {
+          e.preventDefault();
+          hint.style.display = "block";
+        } else {
+          hint.style.display = "none";
+        }
+      });
+    },
+    on_finish: (data) => {
+      const r = data.response;
+
+      const ageStr = (r.age || "").toString().trim();
+      const age = ageStr === "" ? null : Number(ageStr);
+
+      jsPsych.data.addProperties({
+        age,
+        gender: (r.gender || "").trim(),
+        ethnicity: (r.ethnicity || "").trim(),
+        education: r.education || "",
+        nickname: (r.nickname || "").trim()
+      });
+    }
+  };
+
+  // ---------------------------
+  // 2) Scale 1 (OFFICIAL slider plugin; require_movement)
+  // ---------------------------
+  const scale1_intro = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["下一页"],
+    stimulus: `
+      <div class="container">
+        <h3>调查问卷（15题）</h3>
+        <p>接下来，在进入正式实验之前，请您回答15个问题用于简单的调查。</p>
+        <p>对于每个问题的描述，请选择最符合自己实际的看法或感受。</p>
+        <p>使用1-7分的滑块进行评分（1表示"完全不赞同"，7表示"完全赞同"）。</p>
+        <p><b>请注意：必须拖动每个问题的滑块后才能进入下一页。</b></p>
+        <p>请仔细阅读每个题目。点击"下一页"开始作答。</p>
+      </div>
+    `
+  };
+
+  const scale1_items = [
+    "生活中，一些群体总比其他群体有更多的生存机会，这是很正常的。",
+    "有些群体确实比其他群体劣等。",
+    "某些特定群体处于上层社会、另一些处于底层可能确实是件好事。",
+    "群体之间应该有等同的生存机会。",
+    "如果我们更平等的对待他人，那我们就会少些问题。",
+    "我们应该做些力所能及之事使不同群体的境况相同。",
+    "生活中，有时为了成功必需侵碍另一些群体。",
+    "有时候一些群体必须继续待在他们的位置上",
+    "群体平等应该成为我们的理想。",
+    "在社会中没有哪个群体应该处于支配地位。",
+    "我认为世界和平是最宝贵的财富。",
+    "我认为世界各国都有责任维护世界和平。",
+    "我认为意见不同也可以被包容。",
+    "我认为人类的命运是紧紧联系在一起的。",
+    "我认为通过国家间的合作，很多问题可以得到解决。"
+  ];
+
+  function makeScaleSliderTrial(scale_name, q_index, q_text, leftLabel, rightLabel, extra_html="") {
+    return {
+      type: jsPsychHtmlSliderResponse,
+      stimulus: `
+        <div class="container" style="text-align:left;">
+          <h3>${scale_name}：第 ${q_index} 题</h3>
+          <div style="font-size:18px; line-height:1.6; margin: 10px 0 10px 0;">
+            ${q_text}
+          </div>
+          ${extra_html}
+        </div>
+      `,
+      labels: [leftLabel, rightLabel],
+      min: 1,
+      max: 7,
+      step: 1,
+      slider_start: 4,
+      require_movement: true,
+      button_label: "下一页",
+      data: {
+        trial_type: "slider",
+        scale_name,
+        question_index: q_index,
+        question_text: q_text
+      }
+    };
+  }
+
+  // ---------------------------
+  // Welcome + fullscreen
+  // ---------------------------
+  const welcome_fullscreen = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["点击这里全屏开始"],
+    stimulus: `
+      <div class="container">
+        <h2>欢迎参加本次实验</h2>
+        <p>本实验共包含三个部分。</p>
+        <p>第一部分中，您需要先回答一些问题，并认真完成一个语言能力测试。</p>
+        <p>第二部分中，您需要完成一份对您当下感受的评估量表。</p>
+        <p>第三部分中，您会和其他玩家分别组成两个小组，参与一个小组决策任务。</p>
+        <p>请您仔细阅读每个部分的指导语，并认真完成实验任务。</p>
+        <p><b>实验过程中请勿退出全屏</b></p>
+      </div>
+    `
+  };
+
+  const go_fullscreen = {
+    type: jsPsychFullscreen,
+    fullscreen_mode: true,
+    message: '<p>即将进入全屏模式，请点击按钮继续。</p>',
+    button_label: '进入全屏'
+  };
+
+  // ---------------------------
+  // Group info
+  // ---------------------------
+  const group_info = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["继续"],
+    stimulus: `
+      <div class="container">
+        <h3>分组说明</h3>
+        <p>欢迎进入本实验。本系统已根据前一阶段您和其他参与者的问卷结果进行了分组。</p>
+        <p>您和另外3位性格相似的参与者被分到同一组，组成了<b style="color:#c00;">红队</b>。</p>
+        <p>此外，另外4位性格相似参与者被分到同一组，组成了<b style="color:#06c;">蓝队</b>。</p>
+        <p>请点击下方按钮继续，开始下一任务。</p>
+      </div>
+    `
+  };
+
+  // ---------------------------
+  // 3) Language tests (OFFICIAL form plugin + validation)
+  // ---------------------------
+  const lang_intro = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["下一页"],
+    stimulus: `
+      <div class="container">
+        <h3>语言能力测试指导语</h3>
+        <p>接下来，您将完成两个语言能力测试任务。</p>
+        <p>在每个任务中，您会看到五个词语。您需要从这五个词语中选择至少四个，按照正确语法组成一个句子。</p>
+        <p><b>重要提示：</b></p>
+        <p>1. 必须使用至少四个词语<br/>
+           2. 句子必须符合语法规则<br/>
+           3. 字数不超过60字，且必须在文本框内输入文字</p>
+        <p>请发挥您的语言创造力，组成有意义的句子！点击"下一页"开始测试。</p>
+      </div>
+    `
+  };
+
+  function languageTestTrial(task_index, words) {
+    return {
+      type: jsPsychSurveyHtmlForm,
+      button_label: "下一页",
+      preamble: `
+        <div class="container">
+          <h3>语言能力测试</h3>
+          <p><b>任务 ${task_index}/2</b></p>
+          <p>请从以下五个词语中选择至少四个，按照正确语法组成一个句子。</p>
+
+          <div class="wordbox">
+            <div class="wordbox-title">请使用以下词语（至少选择4个）：</div>
+            <div class="chips" id="chips_${task_index}">
+              ${words.map((w, i) => `<div class="chip" data-word="${w}" id="chip_${task_index}_${i}">${w}</div>`).join('')}
+            </div>
+          </div>
+        </div>
+      `,
+      html: `
+        <div class="container">
+          <div class="field" style="margin-top:16px;">
+            <label>请在下方输入框内输入组成的句子：</label>
+            <textarea class="sentence-box" name="sentence" maxlength="60" required placeholder="在此输入您组成的句子（长度不超过60字）..."></textarea>
+          </div>
+
+          <p id="lang_hint_${task_index}" class="hint">请在60字以内输入句子，并确保至少使用4个词语（点击上方词语可选中）。</p>
+        </div>
+      `,
+      on_load: () => {
+        const display = jsPsych.getDisplayElement();
+        const btn = display.querySelector(".jspsych-btn");
+        const hint = display.querySelector(`#lang_hint_${task_index}`);
+        const chipsWrap = display.querySelector(`#chips_${task_index}`);
+        const textarea = display.querySelector('textarea[name="sentence"]');
+        const form = display.querySelector("form");
+
+        const selected = new Set();
+
+        chipsWrap.querySelectorAll(".chip").forEach(chip => {
+          chip.addEventListener("click", () => {
+            const w = chip.dataset.word;
+            if (selected.has(w)) {
+              selected.delete(w);
+              chip.classList.remove("selected");
+            } else {
+              selected.add(w);
+              chip.classList.add("selected");
+            }
+          });
+        });
+
+        function validateAndMaybeBlock(e) {
+          const s = (textarea?.value || "").trim();
+
+          // 1) non-empty
+          if (!s) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            hint.textContent = "请输入句子后再继续。";
+            hint.style.display = "block";
+            return false;
+          }
+
+          // 2) <= 60 chars
+          if (s.length > 60) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            hint.textContent = "字数超出限制：请将句子控制在60字以内。";
+            hint.style.display = "block";
+            return false;
+          }
+
+          // 3) use >= 4 words (either by text containing words OR by selecting >=4 chips)
+          const usedByText = words.filter(w => s.includes(w)).length;
+          const ok = (usedByText >= 4);
+          if (!ok) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            hint.textContent = "使用词语不足：请在句子中至少包含4个给定词语（仅点击选择不算）。";
+            hint.style.display = "block";
+            return false;
+          }
+
+          hint.style.display = "none";
+          return true;
+        }
+
+        // 最稳：同时拦截按钮点击（捕获阶段）+ 表单提交（捕获阶段），防止任何路径绕过校验
+        if (btn) btn.addEventListener("click", validateAndMaybeBlock, true);
+        if (form) form.addEventListener("submit", (e) => { validateAndMaybeBlock(e); }, true);
+      },
+      on_finish: (data) => {
+        const s = (data.response.sentence || "").trim();
+        const used = words.filter(w => s.includes(w)).length;
+        data.trial_type = "language_test";
+        data.task = task_index;
+        data.words = words;
+        data.sentence = s;
+        data.words_used_count = used;
+        data.char_len = s.length;
+      }
+    };
+  }
+
+  // ---------------------------
+  // 4) Scale 2 (OFFICIAL slider plugin; Q17 with image)
+  // ---------------------------
+  const scale2_intro = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["下一页"],
+    stimulus: `
+      <div class="container">
+        <h3>第二个量表</h3>
+        <p>先前您已被分到红队或者蓝队。</p>
+        <p>接下来请回答几个问题，请选择最符合您实际感受的选项。</p>
+        <p>请使用7点量表进行评分（1="完全不符合"，7="完全符合"）</p>
+      </div>
+    `
+  };
+
+  const scale2_items = [
+    "我认为战争不是解决问题的有效手段。",
+    "我认为面对冲突，人类应尽量选择和平的方式解决问题。",
+    "我认为每个人都有同等的追求正当幸福的权利。",
+    "我认为在地球上的人和人之间有着千丝万缕的联系。",
+    "我认为世界是一体的，人们很难做到“独善其身”。",
+    "我认为人类社会的发展是“你中有我，我中有你”的。",
+    "我认为合作比竞争更有利于世界各国的发展。",
+    "在全世界的范围内，人们应该做到一方有难，八方支援。",
+    "只要有可能，人们就应该帮助世界各地受苦的人。",
+    "我认为即使人和人之间有很大的不同，他们也可以为了共同的目标努力。",
+    "在以往的多小组任务中，我总试图站在别组成员的角度思考。",
+    "我感觉所有人其实都在同一条船上。",
+    "我感觉另一个群体的成员也是我们这个大群体的一部分。",
+    "在以往的多小组任务中，我总会思考对方可能在想什么。",
+    "我强烈地感觉我们这整个大群体还是分为'我们'和'他们'。",
+    "当其他群体取得优异的成绩时，我能体会到他们的喜悦。",
+    // 17 special
+    "我与同队其他成员的关系紧密程度。",
+    "看到其他群体成员经历麻烦时，我常常会感到同情。",
+    "看到其他群体出现悲伤的情景时，我也会随之感伤。",
+    "其他群体成员的情绪对我影响不大。",
+    "我尝试从其他群体成员的角度理解他们的感受。"
+  ];
+
+  function makeScale2Trial(q_index, q_text) {
+    if (q_index === 17) {
+      const extra = `
+        <div class="img-wrap">
+          <p>请参考下图（1=完全分离，7=非常紧密）：</p>
+          <img src="closeness_scale.png" alt="关系紧密程度量表图"/>
+        </div>
+      `;
+      return makeScaleSliderTrial("scale2", q_index, q_text, "1 完全分离", "7 非常紧密", extra);
+    }
+    return makeScaleSliderTrial("scale2", q_index, q_text, "1 完全不符合", "7 完全符合");
+  }
+
+  // ---------------------------
+  // 5) Decision task intro + example
+  // ---------------------------
+  const decision_intro = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["下一页"],
+    stimulus: `
+      <div class="container">
+        <h3>决策任务指导语</h3>
+        <p>欢迎参与小组资源分配决策任务！</p>
+        <p>在接下来的环节，将与同组成员和其他组成员共同完成。</p>
+        <p>每个成员做出的决策将匿名处理，每个成员的决策将会影响自己、同组成员和其他组成员的收益，最终报酬将根据所有成员的最终决策进行计算。</p>
+        <p>根据先前数据，您已被分入红队。</p>
+        <p><b>每位成员都有10代币</b>，现在您需要将手中的代币分配到以下账户：</p>
+        <ul>
+          <li><b>账户A：</b>每投资1代币，红队每位成员获得0.5代币；不影响蓝队收益。</li>
+          <li><b>账户B：</b>每投资1代币，红队每位成员获得0.5代币；同时蓝队每位成员损失0.25代币。</li>
+          <li><b>账户C：</b>每投资1代币，所有人各获得0.4代币。</li>
+          <li><b>账户I：</b>保留代币将直接等比转化为最后持有代币。</li>
+        </ul>
+        <div class="img-wrap">
+          <p><b>说明图：</b></p>
+          <img src="eg_1.png" alt="说明图片 eg_1"/>
+        </div>
+        <p><b>若您已明白规则，点击下一页进入投资示例。</b></p>
+      </div>
+    `
+  };
+
+  const decision_example = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["下一页"],
+    stimulus: `
+      <div class="container">
+        <h3>投资示例</h3>
+        <div class="img-wrap">
+          <img src="eg_2.png" alt="投资示例图片 eg_2"/>
+        </div>
+        <p>若您已明白游戏规则，请点击下一页。</p>
+      </div>
+    `
+  };
+
+  // ---------------------------
+  // 6) Matching loading (3s)
+  // ---------------------------
+  const matching_loading = {
+    type: jsPsychHtmlKeyboardResponse,
+    choices: "NO_KEYS",
+    stimulus: `
+      <div class="container center">
+        <h3>正在等待其他玩家进入游戏，请稍等......</h3>
+        <p><img src="loading.gif" alt="loading" style="max-width:220px;"></p>
+      </div>
+    `,
+    trial_duration: 3000
+  };
+
+  // ---------------------------
+  // 7) Token allocation (OFFICIAL form plugin + live sum; no DOM read in on_finish)
+  // ---------------------------
+  const token_allocation = {
+    type: jsPsychSurveyHtmlForm,
+    button_label: "确认提交",
+    preamble: `
+      <div class="container accounts">
+        <h3 class="center">正式投资决策</h3>
+        <p>请将 <b>10</b> 枚代币分配到以下四个账户（每项为0-10的整数），总和必须等于10。</p>
+      </div>
+    `,
+    html: `
+      <div class="container accounts">
+        <div class="alloc-grid">
+          <div class="alloc-card">
+            <h4>账户A</h4>
+            <p>您每投资1代币，您所在<span class="red">红队</span>的每位成员获得0.5代币。</p>
+            <p>您在此账户中的投资数不影响<span class="blue">蓝队</span>成员的收益。</p>
+          </div>
+
+          <div class="alloc-card">
+            <h4>账户B</h4>
+            <p>您每投资1代币，您所在<span class="red">红队</span>的每位成员获得0.5代币。</p>
+            <p>同时<span class="blue">蓝队</span>的每位成员损失0.25代币。</p>
+          </div>
+
+          <div class="alloc-card">
+            <h4>账户C</h4>
+            <p>您每投资1代币，所有人（包括您的小组和其他小组）各获得0.4代币。</p>
+          </div>
+
+          <div class="alloc-card">
+            <h4>账户I</h4>
+            <p>您的初始代币为10，您也可以选择保留，这将直接等比转化为您最后的持有代币。</p>
+          </div>
+        </div>
+
+        <div class="alloc-inputs">
+          <div class="pair"><span>账户A：</span><input name="A" type="number" min="0" max="10" step="1" value="0" required/></div>
+          <div class="pair"><span>账户B：</span><input name="B" type="number" min="0" max="10" step="1" value="0" required/></div>
+          <div class="pair"><span>账户C：</span><input name="C" type="number" min="0" max="10" step="1" value="0" required/></div>
+          <div class="pair"><span>账户I：</span><input name="I" type="number" min="0" max="10" step="1" value="10" required/></div>
+        </div>
+
+        <div class="alloc-sumline">
+          当前总金额：<span id="sum" class="sum-ok">10</span> / 10
+        </div>
+
+        <p id="tok_hint" class="hint" style="text-align:center;">总和必须等于10，且每项为0-10的整数。</p>
+      </div>
+`,
+    on_load: () => {
+      const btn = document.querySelector("button.jspsych-btn");
+      const hint = document.getElementById("tok_hint");
+      const sumEl = document.getElementById("sum");
+      const remainEl = document.getElementById("remain");
+
+      const inputs = {
+        A: document.querySelector('input[name="A"]'),
+        B: document.querySelector('input[name="B"]'),
+        C: document.querySelector('input[name="C"]'),
+        I: document.querySelector('input[name="I"]')
+      };
+
+      function clampInt(v) {
+        if (v === "" || v === null || v === undefined) return 0;
+        let n = Number(v);
+        if (!Number.isFinite(n)) n = 0;
+        n = Math.round(n);
+        n = Math.max(0, Math.min(10, n));
+        return n;
+      }
+
+      function update() {
+        const vals = {};
+        Object.keys(inputs).forEach(k => {
+          const el = inputs[k];
+          const n = clampInt(el.value);
+          el.value = n;
+          vals[k] = n;
+        });
+
+        const sum = vals.A + vals.B + vals.C + vals.I;
+        const remain = 10 - sum;
+        sumEl.textContent = String(sum);
+        remainEl.textContent = String(remain);
+
+        if (sum === 10) {
+          sumEl.classList.remove("sum-bad");
+          sumEl.classList.add("sum-ok");
+          hint.style.display = "none";
+        } else {
+          sumEl.classList.remove("sum-ok");
+          sumEl.classList.add("sum-bad");
+        }
+      }
+
+      Object.values(inputs).forEach(el => el.addEventListener("input", update));
+      update();
+
+      btn.addEventListener("click", (e) => {
+        update();
+        const sum = Number(sumEl.textContent);
+        if (sum !== 10) {
+          e.preventDefault();
+          hint.style.display = "block";
+        } else {
+          hint.style.display = "none";
+        }
+      });
+    },
+    on_finish: (data) => {
+      const r = data.response;
+      const A = Number(r.A);
+      const B = Number(r.B);
+      const C = Number(r.C);
+      const I = Number(r.I);
+
+      data.trial_type = "token_allocation";
+      data.tokens_A = A;
+      data.tokens_B = B;
+      data.tokens_C = C;
+      data.tokens_I = I;
+      data.tokens_sum = A + B + C + I;
+    }
+  };
+
+  // ---------------------------
+  // End screen (exit fullscreen if needed)
+  // ---------------------------
+  const end_screen = {
+    type: jsPsychHtmlButtonResponse,
+    choices: ["退出"],
+    stimulus: `
+      <div class="container center">
+        <h2>实验结束，感谢您的参与！</h2>
+        <p>点击“退出”后将尝试退出全屏，并自动保存数据。</p>
+      </div>
+    `,
+    on_finish: () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
+
+  // ---------------------------
+  // Timeline assembly
+  // ---------------------------
+  const timeline = [];
+
+  // Consent + demographics
+  timeline.push(demographics);
+
+  // Scale 1
+  timeline.push(scale1_intro);
+  scale1_items.forEach((t, i) => {
+    timeline.push(makeScaleSliderTrial("scale1", i + 1, t, "1 完全不赞同", "7 完全赞同"));
+  });
+
+  // Welcome + fullscreen
+  timeline.push(welcome_fullscreen);
+  timeline.push(go_fullscreen);
+
+  // Group info
+  timeline.push(group_info);
+
+  // Language tests
+  timeline.push(lang_intro);
+  timeline.push(languageTestTrial(1, ["安静", "弯曲的", "村落", "圆形的", "狭窄"]));
+  timeline.push(languageTestTrial(2, ["直的", "宽阔", "河流", "椭圆形的", "小的"]));
+
+  // Scale 2
+  timeline.push(scale2_intro);
+  scale2_items.forEach((t, idx) => {
+    timeline.push(makeScale2Trial(idx + 1, t));
+  });
+
+  // Decision task
+  timeline.push(decision_intro);
+  timeline.push(decision_example);
+  timeline.push(matching_loading);
+  timeline.push(token_allocation);
+
+  // End
+  timeline.push(end_screen);
+
+  jsPsych.run(timeline);
+</script>
+</body>
+</html>
